@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Station Registry — Recovery Console</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111418;
+    --surface2: #181c22;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --dim: #3a3f4a;
+    --accent: #4f8ef7;
+    --accent-bg: rgba(79,142,247,0.12);
+    --accent-border: rgba(79,142,247,0.3);
+    --danger: #f87171;
+    --danger-bg: rgba(248,113,113,0.1);
+    --danger-border: rgba(248,113,113,0.3);
+    --success: #4ade80;
+    --success-bg: rgba(74,222,128,0.1);
+    --success-border: rgba(74,222,128,0.3);
+    --warn: #fbbf24;
+    --warn-bg: rgba(251,191,36,0.1);
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  /* Header */
+  .header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2rem;
+    animation: fadeUp 0.5s ease both;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 42px; height: 42px; border-radius: 10px;
+    background: var(--accent-bg); border: 1px solid var(--accent-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--accent);
+  }
+  .app-name { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+  .app-sub { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: 0.05em; }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 500; padding: 4px 10px;
+    border-radius: 20px; letter-spacing: 0.03em;
+  }
+  .pill-warn { background: var(--warn-bg); color: var(--warn); border: 1px solid rgba(251,191,36,0.2); }
+  .pill-accent { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); }
+  .pill-ok { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-warn { background: var(--warn); animation: pulse 2s infinite; }
+  .dot-ok { background: var(--success); }
+
+  @keyframes pulse {
+    0%,100%{opacity:1;} 50%{opacity:0.4;}
+  }
+
+  /* Alert banner */
+  .alert {
+    background: var(--warn-bg);
+    border: 1px solid rgba(251,191,36,0.2);
+    border-left: 3px solid var(--warn);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px; color: var(--warn);
+    margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: 10px;
+    animation: fadeUp 0.5s 0.1s ease both;
+  }
+
+  /* Metrics */
+  .metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    margin-bottom: 1.5rem;
+    animation: fadeUp 0.5s 0.15s ease both;
+  }
+  .metric {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1rem 1.1rem;
+    transition: border-color 0.2s;
+  }
+  .metric:hover { border-color: var(--border2); }
+  .metric-label { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+  .metric-value { font-family: var(--display); font-size: 28px; font-weight: 700; color: var(--text); }
+  .metric-sub { font-size: 10px; color: var(--dim); margin-top: 4px; }
+  .metric.danger .metric-value { color: var(--danger); }
+  .metric.success .metric-value { color: var(--success); }
+  .metric.accent .metric-value { color: var(--accent); }
+
+  /* Sections */
+  .section { margin-bottom: 1.25rem; animation: fadeUp 0.5s ease both; }
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .section-title {
+    font-family: var(--display); font-size: 13px; font-weight: 600;
+    color: var(--text); display: flex; align-items: center; gap: 8px; letter-spacing: 0.02em;
+  }
+  .section-title .icon { font-size: 14px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.1rem 1.25rem;
+  }
+
+  /* Station chips */
+  .chip-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; flex-direction: column; align-items: center;
+    padding: 8px 12px; border: 1px solid var(--border);
+    border-radius: 8px; min-width: 54px; cursor: default;
+    transition: all 0.15s; background: var(--surface2);
+  }
+  .chip:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .chip-id { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0.04em; }
+  .chip-val { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .chip.inv { border-color: var(--danger-border); background: var(--danger-bg); }
+  .chip.inv .chip-id { color: var(--danger); }
+  .chip.inv .chip-val { color: rgba(248,113,113,0.7); }
+  .chip.sorted { border-color: var(--success-border); background: var(--success-bg); }
+  .chip.sorted .chip-id { color: var(--success); }
+  .chip.sorted .chip-val { color: rgba(74,222,128,0.7); }
+
+  /* Two col */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.25rem; }
+
+  /* Inversion list */
+  .inv-list { max-height: 220px; overflow-y: auto; }
+  .inv-list::-webkit-scrollbar { width: 4px; }
+  .inv-list::-webkit-scrollbar-track { background: transparent; }
+  .inv-list::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
+  .inv-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .inv-row:last-child { border-bottom: none; }
+  .inv-n { color: var(--dim); min-width: 22px; }
+  .inv-pair { font-weight: 600; color: var(--text); }
+  .inv-vals { color: var(--muted); }
+  .inv-delta { color: var(--danger); margin-left: auto; }
+
+  /* Bar chart */
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .bar-label { font-size: 11px; color: var(--muted); min-width: 26px; }
+  .bar-track { flex: 1; background: var(--surface2); border-radius: 3px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.6s cubic-bezier(0.16,1,0.3,1); }
+  .bar-count { font-size: 11px; color: var(--dim); min-width: 18px; text-align: right; }
+
+  /* Algorithm panel */
+  .algo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .algo-step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+  .step-badge {
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent-bg); border: 1px solid var(--accent-border);
+    color: var(--accent); font-size: 10px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; margin-top: 1px;
+  }
+  .step-body { font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .step-body strong { color: var(--text); font-weight: 600; }
+  .formula {
+    background: var(--surface2); border-left: 2px solid var(--accent);
+    padding: 8px 12px; font-size: 12px; color: var(--accent);
+    margin: 8px 0; border-radius: 0 6px 6px 0; letter-spacing: 0.03em;
+  }
+
+  /* Disorder meter */
+  .meter-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+  .meter-track { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; margin-bottom: 4px; }
+  .meter-fill { height: 100%; border-radius: 4px; background: var(--danger); transition: width 0.8s cubic-bezier(0.16,1,0.3,1); }
+  .meter-sub { font-size: 11px; color: var(--muted); }
+
+  /* Value lookup */
+  .val-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+  .val-tag {
+    font-size: 11px; padding: 3px 8px;
+    border: 1px solid var(--border); border-radius: 5px;
+    color: var(--muted); background: var(--surface2);
+  }
+  .val-tag span { color: var(--text); font-weight: 600; margin-left: 4px; }
+
+  /* Stagger animations */
+  .section:nth-child(1){animation-delay:0.2s;}
+  .section:nth-child(2){animation-delay:0.25s;}
+  .section:nth-child(3){animation-delay:0.3s;}
+  .metrics{animation-delay:0.15s;}
+  .two-col{animation:fadeUp 0.5s 0.35s ease both;}
+  .algo-section{animation:fadeUp 0.5s 0.4s ease both;}
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 2.5rem; padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; color: var(--dim);
+  }
+
+  @media (max-width: 700px) {
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .two-col, .algo-grid { grid-template-columns: 1fr; }
+    .header { flex-direction: column; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">&#9654;</div>
+      <div>
+        <div class="app-name">Smart City Registry — Recovery Console</div>
+        <div class="app-sub">OUTER CONTROL RING · STATION SYNCHRONIZATION MODULE · LEVEL 1</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="pill pill-warn"><span class="dot dot-warn"></span>Registry corrupted</span>
+      <span class="pill pill-accent">Level 1</span>
+    </div>
+  </div>
+
+  <!-- Alert -->
+  <div class="alert">
+    &#9888;&nbsp; <strong>System alert:</strong>&nbsp; Synchronization failure detected. Station registry sequence is completely disordered. Signal ordering integrity has been compromised. Recovery in progress.
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="metric accent">
+      <div class="metric-label">Total stations</div>
+      <div class="metric-value" id="m-total">14</div>
+      <div class="metric-sub">in registry</div>
+    </div>
+    <div class="metric danger">
+      <div class="metric-label">Inversions found</div>
+      <div class="metric-value" id="m-inv">—</div>
+      <div class="metric-sub">disorder pairs</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Max possible</div>
+      <div class="metric-value" id="m-max">91</div>
+      <div class="metric-sub">n × (n−1) ÷ 2</div>
+    </div>
+    <div class="metric success">
+      <div class="metric-label">Disorder level</div>
+      <div class="metric-value" id="m-pct">—</div>
+      <div class="metric-sub">of max chaos</div>
+    </div>
+  </div>
+
+  <!-- Corrupted input -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="icon">&#9675;</span> Corrupted registry — input order</div>
+      <span class="pill pill-warn" style="font-size:10px;">Red = inversion participant</span>
+    </div>
+    <div class="card">
+      <div class="chip-grid" id="input-chips"></div>
+    </div>
+  </div>
+
+  <!-- Restored output -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="icon">&#10003;</span> Restored registry — ascending signal order</div>
+      <span class="pill pill-ok"><span class="dot dot-ok"></span>Recovered</span>
+    </div>
+    <div class="card">
+      <div class="chip-grid" id="sorted-chips"></div>
+    </div>
+  </div>
+
+  <!-- Two column -->
+  <div class="two-col">
+    <div>
+      <div class="section-header">
+        <div class="section-title">&#8597; Inversion pairs detected</div>
+      </div>
+      <div class="card">
+        <div class="inv-list" id="inv-list"></div>
+      </div>
+    </div>
+    <div>
+      <div class="section-header">
+        <div class="section-title">&#9646; Disorder by station</div>
+      </div>
+      <div class="card">
+        <div id="bar-chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Algorithm panel -->
+  <div class="algo-section">
+    <div class="section-header">
+      <div class="section-title">&#9670; Algorithm — modified merge sort (O(n log n))</div>
+    </div>
+    <div class="card">
+      <div class="algo-grid">
+        <div>
+          <div class="algo-step">
+            <div class="step-badge">1</div>
+            <div class="step-body"><strong>Convert IDs to signal values</strong><br>Each two-letter station ID is converted to its numerical signal representation.</div>
+          </div>
+          <div class="formula">Value = ASCII(letter₁) + ASCII(letter₂)</div>
+          <div class="algo-step">
+            <div class="step-badge">2</div>
+            <div class="step-body"><strong>Divide</strong> — recursively split the station list into halves until single elements remain.</div>
+          </div>
+          <div class="algo-step">
+            <div class="step-badge">3</div>
+            <div class="step-body"><strong>Merge &amp; count</strong> — when merging two sorted halves, every time a right-side element slots before remaining left-side elements, count those as inversions.</div>
+          </div>
+          <div class="algo-step">
+            <div class="step-badge">4</div>
+            <div class="step-body"><strong>Total inversions</strong> = the disorder score of the registry, measured in O(n log n) time.</div>
+          </div>
+        </div>
+        <div>
+          <div class="meter-label">Signal value lookup</div>
+          <div class="val-grid" id="val-lookup" style="margin-bottom:16px;"></div>
+          <div class="meter-label">Registry disorder level</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Inversions: <span id="inv-fraction" style="color:var(--text);font-weight:600;">— / 91</span></div>
+          <div class="meter-track"><div class="meter-fill" id="meter-fill" style="width:0%"></div></div>
+          <div class="meter-sub" id="meter-sub" style="margin-top:5px;">Computing...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>Station Ordering &amp; Disorder Analysis · Level 1</span>
+    <span>Merge sort · Inversion counting · Signal recovery</span>
+  </div>
+
+</div>
+
+<script>
+const stations = ["QA","FM","BT","HX","DP","AK","RC","LM","ZF","KN","PE","CU","SI","VG"];
+function asc(s){ return s.charCodeAt(0) + s.charCodeAt(1); }
+const data = stations.map(s => ({ id: s, v: asc(s) }));
+const sorted = [...data].sort((a, b) => a.v - b.v);
+
+const invSet = new Set();
+const invPairs = [];
+for (let i = 0; i < data.length; i++) {
+  for (let j = i + 1; j < data.length; j++) {
+    if (data[i].v > data[j].v) {
+      invSet.add(i); invSet.add(j);
+      invPairs.push({ si: data[i].id, sj: data[j].id, vi: data[i].v, vj: data[j].v, d: data[i].v - data[j].v });
+    }
+  }
+}
+
+const invCount = invPairs.length;
+const maxInv = 91;
+const pct = Math.round(invCount / maxInv * 100);
+
+document.getElementById('m-inv').textContent = invCount;
+document.getElementById('m-pct').textContent = pct + '%';
+document.getElementById('inv-fraction').textContent = invCount + ' / ' + maxInv;
+document.getElementById('meter-sub').textContent = pct + '% of maximum possible disorder';
+
+setTimeout(() => {
+  document.getElementById('meter-fill').style.width = pct + '%';
+}, 300);
+
+const ic = document.getElementById('input-chips');
+data.forEach((s, i) => {
+  const d = document.createElement('div');
+  d.className = 'chip' + (invSet.has(i) ? ' inv' : '');
+  d.innerHTML = `<span class="chip-id">${s.id}</span><span class="chip-val">${s.v}</span>`;
+  ic.appendChild(d);
+});
+
+const sc = document.getElementById('sorted-chips');
+sorted.forEach(s => {
+  const d = document.createElement('div');
+  d.className = 'chip sorted';
+  d.innerHTML = `<span class="chip-id">${s.id}</span><span class="chip-val">${s.v}</span>`;
+  sc.appendChild(d);
+});
+
+const il = document.getElementById('inv-list');
+invPairs.forEach((p, n) => {
+  const r = document.createElement('div');
+  r.className = 'inv-row';
+  r.innerHTML = `<span class="inv-n">${n+1}</span><span class="inv-pair">${p.si} › ${p.sj}</span><span class="inv-vals">${p.vi} > ${p.vj}</span><span class="inv-delta">+${p.d}</span>`;
+  il.appendChild(r);
+});
+
+const invByStation = {};
+data.forEach(s => invByStation[s.id] = 0);
+invPairs.forEach(p => { invByStation[p.si]++; invByStation[p.sj]++; });
+const topStations = Object.entries(invByStation).sort((a, b) => b[1] - a[1]).slice(0, 8);
+const maxBar = topStations[0][1] || 1;
+const bc = document.getElementById('bar-chart');
+topStations.forEach(([id, cnt]) => {
+  const row = document.createElement('div');
+  row.className = 'bar-row';
+  row.innerHTML = `<span class="bar-label">${id}</span><div class="bar-track"><div class="bar-fill" style="width:0%" data-w="${Math.round(cnt/maxBar*100)}"></div></div><span class="bar-count">${cnt}</span>`;
+  bc.appendChild(row);
+});
+setTimeout(() => {
+  document.querySelectorAll('.bar-fill[data-w]').forEach(el => {
+    el.style.width = el.dataset.w + '%';
+  });
+}, 400);
+
+const vl = document.getElementById('val-lookup');
+data.forEach(s => {
+  const span = document.createElement('span');
+  span.className = 'val-tag';
+  span.innerHTML = `${s.id}<span>${s.v}</span>`;
+  vl.appendChild(span);
+});
+</script>
+</body>
+</html>
